@@ -105,18 +105,16 @@ public:
     static int stopSoftPwm(int pin);
     static int i2cOpen(int bus, int address);
     static int i2cClose(int fd);
-    static int i2cWriteByte(int fd, std::uint8_t value);
-    static int i2cReadByte(int fd);
     static int i2cWriteReg8(int fd, int i2cRegAddress, std::uint8_t value);
     static int i2cReadReg8(int fd, int i2cRegAddress);
     static int i2cWriteReg16(int fd, int i2cRegAddress, std::uint16_t value);
     static int i2cReadReg16(int fd, int i2cRegAddress);
-    static int i2cWriteBlock(int fd, int i2cRegAddress, char *byteArray, int byteCount);
-    static int i2cReadBlock(int fd, int i2cRegAddress, char *byteArray);
+    static int i2cWriteBlock(int fd, int i2cRegAddress, std::uint8_t *byteArray, int byteCount);
+    static int i2cReadBlock(int fd, int i2cRegAddress, std::uint8_t *byteArray, int byteCount);
     static int spiOpen(int bus, int chan, int baud, int mode = 0, bool csActiveHigh = false, int bitsPerWord = 8, bool lsbFirst = false);
     static int spiClose(int fd);
-    static int spiRead(int fd, char *byteArray, int byteCount);
-    static int spiWrite(int fd, char *byteArray, int byteCount);
+    static int spiRead(int fd, std::uint8_t *byteArray, int byteCount);
+    static int spiWrite(int fd, std::uint8_t *byteArray, int byteCount);
     static int setCustomPinMap(const PinInfo *entries);
     static bool fastMmioAvailable(); // return true is SoC with MMIO was found
 public:

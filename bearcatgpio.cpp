@@ -504,19 +504,6 @@ public:
         return fd;
     }
     static int i2cClose(int fd) { return close(fd); }
-    static int i2cWriteByte(int fd, std::uint8_t value)
-    {
-        int status = i2cIoctl(fd, I2C_SMBUS_WRITE, value, I2C_SMBUS_BYTE, nullptr);
-        return status;
-    }
-    static int i2cReadByte(int fd)
-    {
-        union i2c_smbus_data data{};
-        int status = i2cIoctl(fd, I2C_SMBUS_READ, 0, I2C_SMBUS_BYTE, &data);
-        if (status < 0) return status;
-        int value = static_cast<int>(data.byte);
-        return value;
-    }
     static int i2cWriteReg8(int fd, int reg, std::uint8_t value)
     {
         union i2c_smbus_data data{};
@@ -547,7 +534,7 @@ public:
         int value = static_cast<int>(data.word);
         return value;
     }
-    static int i2cWriteBlock(int fd, int reg, const char *byteArray, int byteCount)
+    static int i2cWriteBlock(int fd, int reg, const std::uint8_t *byteArray, int byteCount)
     {
         if ((byteCount < 0) || (byteCount > I2C_SMBUS_BLOCK_MAX)) { errno = EINVAL; return -1; }
         union i2c_smbus_data data{};
@@ -556,15 +543,15 @@ public:
         int status = i2cIoctl(fd, I2C_SMBUS_WRITE, static_cast<std::uint8_t>(reg), I2C_SMBUS_I2C_BLOCK_DATA, &data);
         return status;
     }
-    static int i2cReadBlock(int fd, int reg, char *byteArray)
+    static int i2cReadBlock(int fd, int reg, std::uint8_t* byteArray, int byteCount)
     {
+        if ((byteCount < 1) || (byteCount > I2C_SMBUS_BLOCK_MAX)) return -1;
         union i2c_smbus_data data{};
-        data.block[0] = I2C_SMBUS_BLOCK_MAX;
-        int status = i2cIoctl(fd, I2C_SMBUS_READ, static_cast<std::uint8_t>(reg), I2C_SMBUS_I2C_BLOCK_BROKEN, &data);
+        data.block[0] = static_cast<std::uint8_t>(byteCount); // note: number of bytes to read
+        int status = i2cIoctl(fd, I2C_SMBUS_READ, static_cast<std::uint8_t>(reg), I2C_SMBUS_I2C_BLOCK_DATA, &data);
         if (status < 0) return status;
-        for (int i = 1; i <= data.block[0]; i++) byteArray[i - 1] = static_cast<char>(data.block[i]);
-        int value = static_cast<int>(data.block[0]);
-        return value;
+        for (int i = 1; i <= data.block[0]; i++) byteArray[i - 1] = data.block[i];
+        return static_cast<int>(data.block[0]); // note: bytes actually read
     }
     int spiTransfer(int fd, void *rxBuf, void *txBuf, int byteCount)
     {
@@ -635,13 +622,13 @@ public:
         int status = close(fd);
         return status; // note: unlock spi mutex
     }
-    int spiWrite(int fd, char *byteArray, int byteCount)
+    int spiWrite(int fd, std::uint8_t *byteArray, int byteCount)
     {
         if (byteCount < 0) { errno = EINVAL; return -1; }
         int status = spiTransfer(fd, nullptr, byteArray, byteCount);
         return status;
     }
-    int spiRead(int fd, char *byteArray, int byteCount)
+    int spiRead(int fd, std::uint8_t *byteArray, int byteCount)
     {
         if (byteCount < 0) { errno = EINVAL; return -1; }
         int status = spiTransfer(fd, byteArray, nullptr, byteCount);
@@ -897,21 +884,19 @@ int BearcatGpio::startSoftPwm(int pin, int frequencyHz, float dutyCycle, int ran
 int BearcatGpio::stopSoftPwm(int pin) { return BearcatGpioInternals::instance().stopSoftPwm(pin); }
 int BearcatGpio::i2cOpen(int bus, int address) { return BearcatGpioInternals::i2cOpen(bus, address); }
 int BearcatGpio::i2cClose(int fd) { return BearcatGpioInternals::i2cClose(fd); }
-int BearcatGpio::i2cWriteByte(int fd, std::uint8_t value) { return BearcatGpioInternals::i2cWriteByte(fd, value); }
-int BearcatGpio::i2cReadByte(int fd) { return BearcatGpioInternals::i2cReadByte(fd); }
 int BearcatGpio::i2cWriteReg8(int fd, int reg, std::uint8_t value) { return BearcatGpioInternals::i2cWriteReg8(fd, reg, value); }
 int BearcatGpio::i2cReadReg8(int fd, int reg) { return BearcatGpioInternals::i2cReadReg8(fd, reg); }
 int BearcatGpio::i2cWriteReg16(int fd, int reg, std::uint16_t value) { return BearcatGpioInternals::i2cWriteReg16(fd, reg, value); }
 int BearcatGpio::i2cReadReg16(int fd, int reg) { return BearcatGpioInternals::i2cReadReg16(fd, reg); }
-int BearcatGpio::i2cWriteBlock(int fd, int reg, char *byteArray, int byteCount) { return BearcatGpioInternals::i2cWriteBlock(fd, reg, byteArray, byteCount); }
-int BearcatGpio::i2cReadBlock(int fd, int reg, char *byteArray) { return BearcatGpioInternals::i2cReadBlock(fd, reg, byteArray); }
+int BearcatGpio::i2cWriteBlock(int fd, int reg, std::uint8_t *byteArray, int byteCount) { return BearcatGpioInternals::i2cWriteBlock(fd, reg, byteArray, byteCount); }
+int BearcatGpio::i2cReadBlock(int fd, int reg, std::uint8_t *byteArray, int byteCount) { return BearcatGpioInternals::i2cReadBlock(fd, reg, byteArray, byteCount); }
 int BearcatGpio::spiOpen(int bus, int chan, int baud, int mode, bool csActiveHigh, int bitsPerWord, bool lsbFirst)
 {
     return BearcatGpioInternals::instance().spiOpen(bus, chan, baud, mode, csActiveHigh, bitsPerWord, lsbFirst);
 }
 int BearcatGpio::spiClose(int fd) { return BearcatGpioInternals::instance().spiClose(fd); }
-int BearcatGpio::spiRead(int fd, char *byteArray, int byteCount) { return BearcatGpioInternals::instance().spiRead(fd, byteArray, byteCount); }
-int BearcatGpio::spiWrite(int fd, char *byteArray, int byteCount) { return BearcatGpioInternals::instance().spiWrite(fd, byteArray, byteCount); }
+int BearcatGpio::spiRead(int fd, std::uint8_t *byteArray, int byteCount) { return BearcatGpioInternals::instance().spiRead(fd, byteArray, byteCount); }
+int BearcatGpio::spiWrite(int fd, std::uint8_t *byteArray, int byteCount) { return BearcatGpioInternals::instance().spiWrite(fd, byteArray, byteCount); }
 int BearcatGpio::setCustomPinMap(const PinInfo *entries) { return BearcatGpioInternals::instance().setCustomPinMap(entries); }
 bool BearcatGpio::fastMmioAvailable() { return BearcatGpioInternals::instance().fastMmioAvailable(); }
 /////////////////////////////////////// END: MAIN API FUNCTIONS ////////////////////////////////////
